@@ -1,0 +1,145 @@
+🚀 How to Attach and Use an EBS Volume for Jenkins on EC2 (Step-by-Step Guide)
+An EBS (Elastic Block Store) volume is a persistent storage solution in AWS. By using EBS for Jenkins, you can prevent data loss even if you restart or replace your EC2 instance.
+
+✅ Step 1: Create an EBS Volume
+🔹 1.1 Go to the AWS Console and Create a Volume
+1️⃣ Open AWS Management Console
+2️⃣ Go to EC2 Dashboard → Elastic Block Store (EBS) → Volumes
+3️⃣ Click Create Volume
+4️⃣ Configure the volume:
+
+Size: Choose the size (e.g., 20 GiB for Jenkins)
+Availability Zone (AZ): Must match the AZ of your EC2 instance
+To check your instance’s AZ, run:
+sh
+Copy
+Edit
+curl http://169.254.169.254/latest/meta-data/placement/availability-zone
+Volume Type: gp3 (recommended for Jenkins)
+IOPS & Throughput: Keep defaults unless high performance is needed
+Click Create Volume
+🔹 1.2 Attach the Volume to Your EC2 Instance
+1️⃣ Select the newly created volume
+2️⃣ Click Attach Volume
+3️⃣ Select your EC2 instance from the dropdown
+4️⃣ Click Attach
+
+✅ Step 2: Find and Format the Attached Volume
+🔹 2.1 Connect to Your EC2 Instance
+1️⃣ SSH into your EC2 instance:
+
+sh
+Copy
+Edit
+ssh -i your-key.pem ec2-user@your-instance-ip
+🔹 2.2 Check if the Volume is Attached
+Run:
+
+sh
+Copy
+Edit
+lsblk
+Look for a new unmounted device like /dev/xvdf or /dev/nvme1n1
+If you don’t see the volume, detach it from AWS and reattach it
+🔹 2.3 Format the Volume
+If it’s a new volume, format it with ext4:
+
+sh
+Copy
+Edit
+sudo mkfs -t ext4 /dev/xvdf
+Note: Replace /dev/xvdf with your actual device name from lsblk.
+
+✅ Step 3: Mount the EBS Volume for Jenkins
+🔹 3.1 Create a Mount Directory
+sh
+Copy
+Edit
+sudo mkdir -p /mnt/jenkins
+🔹 3.2 Mount the Volume
+sh
+Copy
+Edit
+sudo mount /dev/xvdf /mnt/jenkins
+Verify:
+
+sh
+Copy
+Edit
+df -h
+You should see /mnt/jenkins listed.
+
+✅ Step 4: Move Jenkins Data to EBS
+🔹 4.1 Stop Jenkins Before Moving Data
+sh
+Copy
+Edit
+sudo systemctl stop jenkins
+🔹 4.2 Copy Existing Jenkins Data
+sh
+Copy
+Edit
+sudo cp -r /var/lib/jenkins/* /mnt/jenkins/
+🔹 4.3 Set Correct Permissions
+sh
+Copy
+Edit
+sudo chown -R jenkins:jenkins /mnt/jenkins/
+🔹 4.4 Backup Old Jenkins Data and Link New Mount
+sh
+Copy
+Edit
+sudo mv /var/lib/jenkins /var/lib/jenkins.bak
+sudo ln -s /mnt/jenkins /var/lib/jenkins
+🔹 4.5 Start Jenkins Again
+sh
+Copy
+Edit
+sudo systemctl start jenkins
+✅ Step 5: Make the Mount Persistent
+By default, the volume will unmount after a reboot. We need to make it permanent.
+
+🔹 5.1 Open the fstab File
+sh
+Copy
+Edit
+sudo nano /etc/fstab
+🔹 5.2 Add the Following Line at the End
+bash
+Copy
+Edit
+/dev/xvdf /mnt/jenkins ext4 defaults,nofail 0 2
+Note: Replace /dev/xvdf with your actual device name.
+
+🔹 5.3 Save and Exit
+Press CTRL + X
+Press Y to save
+Press ENTER
+🔹 5.4 Test the Mount
+sh
+Copy
+Edit
+sudo umount /mnt/jenkins
+sudo mount -a
+✅ Step 6: Verify Jenkins Data is Persistent
+🔹 6.1 Reboot Your Instance
+sh
+Copy
+Edit
+sudo reboot
+🔹 6.2 Check if the Mount is Persistent
+After reboot, SSH into the instance and run:
+
+sh
+Copy
+Edit
+df -h
+ls /var/lib/jenkins/
+If Jenkins data is still there, your setup is complete! 🎉
+
+💡 Best Practices
+✅ Use an EBS Volume for /var/lib/jenkins/ to prevent data loss
+✅ Take snapshots of your EBS volume to backup Jenkins data
+✅ Increase EBS volume size when needed (Modify Volume in AWS)
+✅ Stop Jenkins before making changes to the volume
+
